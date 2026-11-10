@@ -261,7 +261,13 @@ function renderHero(rows, now) {
   const host = $('hero');
   const n = rows[0];
   if (!n) {
-    host.innerHTML = `<div class="empty" style="grid-column:1/-1">还没有${L().item}数据。点右上角“立即采集”试试。</div>`;
+    const st = (current && current.status[PLATFORM]) || {};
+    const why = st.errMsg
+      ? `采集出错：${esc(st.errMsg)}`
+      : st.lastOk
+        ? `这个账号还没有发布${L().item}。发布后，下一次采集会自动记录。`
+        : '还没有采集过。点右上角“立即采集”试试。';
+    host.innerHTML = `<div class="empty" style="grid-column:1/-1">${why}</div>`;
     return;
   }
   const it = n.item;
@@ -278,6 +284,17 @@ function renderHero(rows, now) {
     } else {
       chips.push(chip('', '登录 B 站创作中心后显示限流状态和点击率'));
     }
+  } else if (PLATFORM === 'xiaohongshu' || PLATFORM === 'douyin') {
+    const d = it.deep;
+    if (d && d.impressions != null) {
+      chips.push(chip('', `曝光 <b>${num(d.impressions)}</b>`));
+      if (d.ctr != null) chips.push(chip('', `封面点击率 <b>${pct(d.ctr)}</b>`));
+      if (d.exit2s != null) chips.push(chip(d.exit2s > 0.5 ? 'warn' : '', `2 秒退出 <b>${pct(d.exit2s)}</b>`));
+    } else if (PLATFORM === 'xiaohongshu') {
+      chips.push(chip('', '这篇没有曝光和点击率数据（只提供给近期笔记）'));
+    }
+    if (it.private) chips.push(chip('warn', '<b>仅自己可见</b>'));
+    if (it.video) chips.push(chip('', '视频'));
   } else {
     chips.push(chip('', it.sent ? `群发送达 <b>${num(it.sent)}</b> 人` : '没有群发记录'));
     if (it.sent && n.view != null) chips.push(chip('', `阅读 / 送达 <b>${pct(n.view / it.sent)}</b>`));
@@ -294,7 +311,9 @@ function renderHero(rows, now) {
     { l: `往期${L().view}中位数`, v: num(med), s: med ? `${past.length} 期累计，这期才发 ${ageText(n.ageH)}` : '往期数据不足' },
     PLATFORM === 'wechat'
       ? { l: '点赞 · 喜欢 · 分享', v: `${num(f.like)} · ${num(f.wow)} · ${num(f.share)}`, s: `评论 ${num(f.reply)}`, sm: true }
-      : { l: '点赞 · 投币 · 收藏', v: `${num(f.like)} · ${num(f.coin)} · ${num(f.fav)}`, s: `评论 ${num(f.reply)} · 分享 ${num(f.share)}`, sm: true },
+      : PLATFORM === 'bilibili'
+        ? { l: '点赞 · 投币 · 收藏', v: `${num(f.like)} · ${num(f.coin)} · ${num(f.fav)}`, s: `评论 ${num(f.reply)} · 分享 ${num(f.share)}`, sm: true }
+        : { l: '点赞 · 收藏 · 分享', v: `${num(f.like)} · ${num(f.fav)} · ${num(f.share)}`, s: `评论 ${num(f.reply)}`, sm: true },
   ];
 
   host.innerHTML = `
@@ -426,14 +445,21 @@ function renderBars(rows) {
 
 function renderTable(rows, followers) {
   const wx = PLATFORM === 'wechat';
+  const social = PLATFORM === 'xiaohongshu' || PLATFORM === 'douyin';
   const head = wx
     ? ['文章', '发布', '送达', '阅读', '阅读/送达', '点赞', '喜欢', '分享', '评论', '互动率']
-    : ['视频', '发布', '时长', '播放', '播放/粉丝', '点赞', '投币', '收藏', '评论', '分享', '互动率'];
+    : social
+      ? [L().item, '发布', L().view, '曝光', '封面点击率', '点赞', '收藏', '评论', '分享', '互动率']
+      : ['视频', '发布', '时长', '播放', '播放/粉丝', '点赞', '投币', '收藏', '评论', '分享', '互动率'];
   const body = rows
     .map((r) => {
       const f = r.full || {};
       const link = `<a href="${esc(r.item.url)}" target="_blank" rel="noopener"><span class="thumb">${cover(r.item)}</span><span>${esc(r.item.title || r.item.id)}</span></a>`;
-      const cells = wx
+      const dp = r.item.deep || {};
+      const cells = social
+        ? [fmtDate(r.item.pubdate) + (r.item.private ? '（仅自己）' : ''), num(r.view), num(dp.impressions), dp.ctr != null ? pct(dp.ctr) : '—',
+          num(f.like), num(f.fav), num(f.reply), num(f.share), pct(r.eng)]
+        : wx
         ? [fmtDate(r.item.pubdate), num(r.item.sent || null), num(r.view),
           r.item.sent && r.view != null ? pct(r.view / r.item.sent) : '—',
           num(f.like), num(f.wow), num(f.share), num(f.reply), pct(r.eng)]
@@ -449,8 +475,9 @@ function renderTable(rows, followers) {
 
 function renderStatus(data, now) {
   const parts = [];
-  for (const p of ['bilibili', 'wechat']) {
+  for (const p of ['bilibili', 'wechat', 'douyin', 'xiaohongshu']) {
     const st = data.status[p] || {};
+    if ((p === 'douyin' || p === 'xiaohongshu') && !st.lastOk && !st.errMsg && !st.lastTry) continue;
     let cls = 'ok';
     let text;
     if (st.backoffUntil && now < st.backoffUntil) { cls = 'err'; text = `被平台风控，${fmtTime(st.backoffUntil)} 后再试`; }

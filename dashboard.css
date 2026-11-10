@@ -26,6 +26,8 @@
   --wash: rgba(11, 11, 11, 0.04);
   --bili: #fb7299;
   --wx: #07c160;
+  --dy: #25c4d8;
+  --xhs: #ff2442;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -117,6 +119,8 @@ a { color: inherit; }
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 .dot.bili { background: var(--bili); }
 .dot.wx { background: var(--wx); }
+.dot.dy { background: var(--dy); }
+.dot.xhs { background: var(--xhs); }
 
 /* ---------- 卡片 ---------- */
 .card {
