@@ -258,13 +258,14 @@ const ICON = { good: '✓', warn: '!', info: 'i' };
 const chip = (kind, html) => `<span class="chip ${kind}">${kind ? `<span class="ico">${ICON[kind]}</span>` : ''}${html}</span>`;
 
 // 已定时、还没到发布时间的作品
+// 已定时还没到时间的，以及从未公开发布的（YouTube 私享、草稿）
 function scheduledItems(data, now) {
   return Object.values(data.items)
-    .filter((it) => it.platform === PLATFORM && it.pubdate && it.pubdate * 1000 > now)
-    .sort((a, b) => a.pubdate - b.pubdate);
+    .filter((it) => it.platform === PLATFORM && ((it.pubdate && it.pubdate * 1000 > now) || it.unpublished))
+    .sort((a, b) => (a.pubdate || a.createdAt || 0) - (b.pubdate || b.createdAt || 0));
 }
 const scheduledChip = (list) => list.length
-  ? chip('', `已定时 <b>${list.length}</b> 个：${list.map((it) => `${esc((it.title || '').slice(0, 14))} ${new Date(it.pubdate * 1000).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 发布`).join('；')}`)
+  ? chip('', `还没发布 <b>${list.length}</b> 个：${list.map((it) => `${esc((it.title || '').slice(0, 14))} ${it.pubdate ? `${new Date(it.pubdate * 1000).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 发布` : `（${esc(it.privacy || '未公开')}）`}`).join('；')}`)
   : '';
 
 function renderHero(rows, now) {
