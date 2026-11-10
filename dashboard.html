@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>内容数据</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <div id="lock" class="lock" hidden>
+    <form id="lock-form" class="card lock-card">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="12" width="4" height="9" rx="1.5"/><rect x="10" y="7" width="4" height="14" rx="1.5"/><rect x="17" y="3" width="4" height="18" rx="1.5"/></svg></div>
+      <h2>内容数据</h2>
+      <p class="help">数据在你的电脑上用查看密码加密过，输入密码才能打开。</p>
+      <input id="lock-pw" type="password" autocomplete="current-password" placeholder="查看密码" required>
+      <label class="check"><input id="lock-remember" type="checkbox" checked> 在这台手机上记住密码</label>
+      <button id="lock-btn" class="btn primary">打开</button>
+      <p id="lock-msg" class="msg"></p>
+    </form>
+  </div>
+
+  <main>
+    <header class="top">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="12" width="4" height="9" rx="1.5"/><rect x="10" y="7" width="4" height="14" rx="1.5"/><rect x="17" y="3" width="4" height="18" rx="1.5"/></svg>
+        </div>
+        <div>
+          <h1>内容数据</h1>
+          <div id="status" class="status"></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="btn-refresh" class="btn ghost" hidden>刷新</button>
+        <button id="btn-lock" class="btn ghost" hidden>退出</button>
+        <button id="btn-cloud" class="btn ghost">手机查看</button>
+        <button id="btn-settings" class="btn ghost">手机推送</button>
+        <button id="btn-export" class="btn ghost">导出</button>
+        <button id="btn-collect" class="btn primary">立即采集</button>
+      </div>
+    </header>
+
+    <p id="banner" class="banner" hidden></p>
+
+    <nav class="seg" aria-label="平台">
+      <button class="seg-btn on" data-platform="bilibili"><span class="dot bili"></span>B站</button>
+      <button class="seg-btn" data-platform="wechat"><span class="dot wx"></span>公众号</button>
+      <button class="seg-btn" disabled>抖音<span class="soon">待接入</span></button>
+      <button class="seg-btn" disabled>小红书<span class="soon">待接入</span></button>
+    </nav>
+
+    <section id="hero" class="card hero"></section>
+
+    <section id="kpis" class="kpis"></section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>复盘</h2>
+        <span class="hint">根据已采集的数据自动生成，每条都写了依据</span>
+      </div>
+      <div id="insights" class="ins-grid"></div>
+    </section>
+
+    <section class="grid2">
+      <div class="card">
+        <div class="card-head"><h2>粉丝趋势</h2></div>
+        <div id="chart-followers" class="chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2 id="h-curve">发布后播放曲线</h2>
+          <span class="hint">各期对齐到发布时刻，看起量快慢</span>
+        </div>
+        <div id="legend-curve" class="legend"></div>
+        <div id="chart-curve" class="chart"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2 id="h-bars">各期播放</h2>
+        <span class="hint">最近 12 期的累计数，虚线是中位数</span>
+      </div>
+      <div id="chart-bars" class="bars"></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2 id="h-table">全部视频</h2></div>
+      <div class="table-wrap"><table id="table"></table></div>
+    </section>
+  </main>
+
+  <dialog id="dlg">
+    <form method="dialog" class="dlg">
+      <h2>推送到手机</h2>
+      <p class="help">每天定时把日报推到手机；B 站稿件被限流、后台登录过期时立刻提醒。电脑开着、Chrome 在后台运行时才会采集和推送。</p>
+
+      <div class="field">
+        <label for="p-channel">推送方式</label>
+        <select id="p-channel"></select>
+      </div>
+
+      <div class="field" data-ch="ntfy" hidden>
+        <label for="p-ntfy">ntfy 主题名</label>
+        <input id="p-ntfy" type="text" spellcheck="false" autocomplete="off">
+        <p class="help">手机装 ntfy App（App Store / Google Play 搜 “ntfy”），点 “+” 订阅这个主题名，服务器用默认的 ntfy.sh。主题名相当于密码：别人知道了就能看到你的推送，所以用随机生成的这串，不要改成好猜的词。</p>
+      </div>
+
+      <div class="field" data-ch="bark" hidden>
+        <label for="p-bark">Bark key</label>
+        <input id="p-bark" type="text" spellcheck="false" autocomplete="off">
+        <p class="help">iPhone 装 Bark，打开后复制示例网址里 api.day.app/ 后面那一串。</p>
+      </div>
+
+      <div class="field" data-ch="serverchan" hidden>
+        <label for="p-sc">Server酱 SendKey</label>
+        <input id="p-sc" type="text" spellcheck="false" autocomplete="off">
+        <p class="help">在 Server酱官网用微信扫码登录、关注它的服务号，复制 SendKey（SCT 开头）。消息会出现在微信里。免费版每天有条数限制。</p>
+      </div>
+
+      <div id="p-when" class="row2" hidden>
+        <div class="field">
+          <label for="p-hour">每天几点发日报</label>
+          <select id="p-hour"></select>
+        </div>
+        <label class="check"><input id="p-alerts" type="checkbox"> 限流、登录过期时立即提醒</label>
+      </div>
+
+      <div class="dot-sec">
+        <label class="check"><input id="p-dot" type="checkbox"> 每天同时给 ChatGPT Dot 一份详细数据，让它写复盘发给你</label>
+        <div id="p-dot-box" hidden>
+          <p class="help">到日报时间，扩展会把详细数据发到一个单独的 ntfy 主题，这个主题不会推到你手机上。在 Dot 里建一个每天执行的任务，把下面整段指令粘贴进去。指令里的网址相当于密码，知道它的人都能读到你的数据，只交给 Dot。</p>
+          <div class="field">
+            <span class="label">粘贴给 Dot 的指令</span>
+            <pre id="p-dot-prompt" class="preview"></pre>
+          </div>
+          <details class="field">
+            <summary>Dot 每天收到的数据（预览）</summary>
+            <pre id="p-dot-preview" class="preview"></pre>
+          </details>
+          <div class="dot-actions">
+            <button id="p-dot-copy" type="button" class="btn ghost">复制指令</button>
+            <button id="p-dot-test" type="button" class="btn ghost">现在发一份给 Dot</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="label">手机日报预览（按当前数据生成）</span>
+        <pre id="p-preview" class="preview"></pre>
+      </div>
+
+      <div class="dlg-foot">
+        <span id="p-msg" class="msg"></span>
+        <button id="p-test" type="button" class="btn ghost">发送测试</button>
+        <button id="p-save" type="button" class="btn primary">保存</button>
+        <button value="close" class="btn ghost">关闭</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-cloud">
+    <form method="dialog" class="dlg">
+      <h2>在手机上看</h2>
+      <p class="help">开启后，电脑每次采集完，会把数据用你设的查看密码加密，存到你 GitHub 账号下的一个私密 Gist。手机打开下面生成的网址、输入查看密码就能看，电脑关机时显示最后一次上传的数据。GitHub 上只有加密后的内容，没有密码解不开；token 和查看密码只存在这台电脑的 Chrome 里，不会上传。</p>
+
+      <label class="check top-gap"><input id="c-on" type="checkbox"> 开启手机查看</label>
+
+      <div class="field">
+        <label for="c-token">GitHub token</label>
+        <input id="c-token" type="password" autocomplete="off" spellcheck="false">
+        <p class="help">GitHub 网页：右上角头像 → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token (classic)。Note 随便写，有效期按需，权限<b>只勾 gist</b>，生成后复制粘贴到这里。</p>
+      </div>
+
+      <div class="field">
+        <label for="c-pass">查看密码（至少 8 位）</label>
+        <input id="c-pass" type="password" autocomplete="new-password">
+        <p class="help">手机第一次打开时输入。不要用你其他账号的密码。改了密码后，在手机上点“退出”重新输入即可。</p>
+      </div>
+
+      <div id="c-url-box" class="field" hidden>
+        <label for="c-url">手机打开这个网址</label>
+        <input id="c-url" type="text" readonly>
+        <p class="help">网址 # 后面那串指向你的加密数据。没有查看密码看不到内容，但还是只留给自己。</p>
+      </div>
+
+      <div class="dlg-foot">
+        <span id="c-msg" class="msg"></span>
+        <button id="c-copy" type="button" class="btn ghost" hidden>复制网址</button>
+        <button id="c-save" type="button" class="btn primary">保存并上传</button>
+        <button value="close" class="btn ghost">关闭</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="tip" class="tip" hidden></div>
+  <script type="module" src="dashboard.js"></script>
+</body>
+</html>
