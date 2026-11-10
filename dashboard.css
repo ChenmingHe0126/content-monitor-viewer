@@ -192,6 +192,27 @@ svg.spark { display: block; width: 100%; height: 30px; margin-top: 6px; }
 .ins .d { color: var(--text-2); font-size: 12.5px; line-height: 1.6; margin-top: 3px; }
 .none { color: var(--muted); font-size: 12.5px; padding: 8px 2px 2px; }
 
+/* ---------- 长期分析 ---------- */
+.long-findings { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.long-findings li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; }
+.long-findings .t { font-weight: 600; font-size: 13.5px; line-height: 1.45; }
+.long-findings .d { color: var(--text-2); font-size: 12.5px; line-height: 1.6; margin-top: 2px; }
+.long-findings .ico { margin-top: 2px; }
+.long-findings li.good .ico { background: var(--good); }
+.long-findings li.warn .ico { background: var(--warn); color: #0b0b0b; }
+.mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
+.mini-title { font-size: 12.5px; font-weight: 600; color: var(--text-2); margin-bottom: 2px; }
+.dur-title { margin-top: 14px; }
+.dur-table { display: grid; gap: 6px; margin-top: 6px; }
+.dur-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) 150px; gap: 12px; align-items: center; font-size: 12.5px; }
+.dur-row .track { height: 12px; }
+.dur-row .fill { background: var(--series-1); }
+.dur-row .meta2 { color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; }
+@media (max-width: 720px) {
+  .mini-grid { grid-template-columns: 1fr; }
+  .dur-row { grid-template-columns: 80px minmax(0, 1fr) 110px; }
+}
+
 /* ---------- 图表 ---------- */
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }

@@ -3,6 +3,7 @@ import { analyze, videoRows, latestFollowers, median, fmtDuration, LABELS, HOUR 
 import { buildDailyReport, buildDotReport, buildDotPrompt, followerChange, viewsChange, ageText, PLATFORM_NAMES } from './lib/report.js';
 import { sendPush, pushReady, dotReady, postDot, randomTopic, CHANNELS } from './lib/push.js';
 import { decryptJson, fetchGist, WrongPasswordError, cloudReady, viewerLink } from './lib/cloud.js';
+import { videoFacts, longTermFindings, durationTable } from './lib/analysis.js';
 
 let PLATFORM = 'bilibili';
 let current = null;
@@ -145,6 +146,84 @@ function lineChart(host, series, { tickFmt, tipFmt = tickFmt, yFmt = num, zero =
   });
 }
 
+// 每期视频一个点：横轴发布日期，纵轴某个指标；最新一期标橙色，虚线是中位数
+function dotChart(host, rows, { value, yFmt, log = false, offset = 0, max = null, zero = true, emptyText, height = 170 }) {
+  const pts = rows.map((r) => ({ r, y: value(r) })).filter((p) => p.y != null);
+  if (pts.length < 2) {
+    host.innerHTML = `<div class="empty">${esc(emptyText || '数据积累中')}</div>`;
+    return;
+  }
+  const W = Math.max(260, host.clientWidth || 420);
+  const H = height;
+  const m = { l: 40, r: 10, t: 10, b: 22 };
+  // offset：对数轴上让 0 也能画出来（新粉丝可能是 0）
+  const tf = (v) => (log ? Math.log10(Math.max(1, v + offset)) : v);
+  const ys = pts.map((p) => tf(p.y));
+  let y0 = log ? Math.floor(Math.min(...ys)) : zero ? 0 : Math.min(...ys);
+  let y1 = log ? Math.ceil(Math.max(...ys)) : Math.max(...ys);
+  if (y1 === y0) y1 = y0 + 1;
+  if (!log) y1 = max != null ? Math.min(max, y0 + niceStep((y1 - y0) / 3) * 3) : y0 + niceStep((y1 - y0) / 3) * 3;
+  if (!log && max != null && y1 < Math.max(...ys)) y1 = max;
+  const xs = pts.map((p) => p.r.pub);
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const X = (t) => m.l + ((t - x0) / (x1 - x0 || 1)) * (W - m.l - m.r);
+  const Y = (v) => H - m.b - ((tf(v) - y0) / (y1 - y0)) * (H - m.t - m.b);
+  const ticks = log
+    ? Array.from({ length: y1 - y0 + 1 }, (_, i) => (offset && y0 + i === 0 ? 0 : 10 ** (y0 + i)))
+    : (max != null && y1 === max ? [0, 1, 2, 3, 4].map((i) => y0 + ((y1 - y0) * i) / 4) : [0, 1, 2, 3].map((i) => y0 + ((y1 - y0) * i) / 3));
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  for (const v of ticks) {
+    svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${v === ticks[0] ? 'var(--axis)' : 'var(--grid)'}" stroke-width="1"/>`;
+    svg += `<text x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${esc(yFmt(v))}</text>`;
+  }
+  const years = [];
+  for (let y = new Date(x0 * 1000).getFullYear() + 1; y <= new Date(x1 * 1000).getFullYear(); y++) years.push(y);
+  for (const y of years) {
+    const x = X(new Date(`${y}-01-01T00:00:00`).getTime() / 1000);
+    svg += `<line x1="${x}" x2="${x}" y1="${m.t}" y2="${H - m.b}" stroke="var(--grid)" stroke-width="1"/>`;
+    svg += `<text x="${x}" y="${H - 6}" text-anchor="middle">${y}</text>`;
+  }
+  const med = median(pts.map((p) => p.y));
+  svg += `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(med)}" y2="${Y(med)}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="3 3"/>`;
+  const latest = pts.reduce((a, b) => (b.r.pub > a.r.pub ? b : a));
+  for (const p of pts) {
+    const hot = p === latest;
+    svg += `<circle cx="${X(p.r.pub)}" cy="${Y(p.y)}" r="${hot ? 5 : 4}" fill="${hot ? 'var(--series-2)' : 'var(--series-1)'}" fill-opacity="${hot ? 1 : 0.75}" stroke="var(--surface)" stroke-width="1.5"/>`;
+  }
+  svg += `<rect x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/></svg>`;
+  host.innerHTML = svg;
+  const el = host.querySelector('svg');
+  el.addEventListener('mousemove', (ev) => {
+    const box = el.getBoundingClientRect();
+    const sx = ((ev.clientX - box.left) / box.width) * W;
+    const sy = ((ev.clientY - box.top) / box.height) * H;
+    const p = pts.reduce((a, b) => (Math.hypot(X(b.r.pub) - sx, Y(b.y) - sy) < Math.hypot(X(a.r.pub) - sx, Y(a.y) - sy) ? b : a));
+    showTip(`<div><b>${esc(p.r.title)}</b></div><div class="t">${fmtDate(p.r.pub)}${p.r.dur ? ` · ${esc(fmtDuration(p.r.dur))}` : ''}</div><div>${esc(yFmt(p.y))}</div>`, ev.clientX, ev.clientY);
+  });
+  el.addEventListener('mouseleave', hideTip);
+}
+
+function renderLong(data, now) {
+  const sec = $('long');
+  sec.hidden = PLATFORM !== 'bilibili';
+  if (sec.hidden) return;
+  $('long-findings').innerHTML = longTermFindings(data, now)
+    .map((f) => `<li class="${f.level}"><span class="ico">${ICON[f.level] || 'i'}</span><div><div class="t">${esc(f.title)}</div><div class="d">${esc(f.detail)}</div></div></li>`)
+    .join('');
+  const rows = videoFacts(data, now);
+  const empty = '数据积累中：扩展每轮会从创作中心补取几期';
+  dotChart($('m-d7'), rows, { value: (r) => r.d7, yFmt: num, log: true, emptyText: empty });
+  dotChart($('m-ctr'), rows, { value: (r) => r.ctrPass, yFmt: (v) => pct(v, 0), max: 1, emptyText: empty });
+  dotChart($('m-bounce'), rows, { value: (r) => r.bounce, yFmt: (v) => pct(v, 0), emptyText: empty });
+  dotChart($('m-follows'), rows, { value: (r) => r.follows, yFmt: num, log: true, offset: 1, emptyText: empty });
+  const tbl = durationTable(rows).filter((b) => b.n > 0);
+  const max = Math.max(1, ...tbl.map((b) => b.median || 0));
+  $('m-dur').innerHTML = tbl.length
+    ? tbl.map((b) => `<div class="dur-row"><div>${esc(b.label)}</div><div class="track"><div class="fill" style="width:${((b.median || 0) / max) * 100}%"></div></div><div class="meta2">中位数 ${num(b.median)} · ${b.n} 期</div></div>`).join('')
+    : `<div class="empty">${esc(empty)}</div>`;
+}
+
 function sparkline(points, color) {
   if (!points || points.length < 2) return '';
   const W = 200;
@@ -280,10 +359,27 @@ function renderCurve(rows) {
   const colors = [cssVar('--series-1'), cssVar('--series-2'), cssVar('--series-3')];
   const n = rows[0];
   const xmax = n ? Math.min(168, Math.max(48, n.ageH)) : 168;
-  const toPts = (r) => r.snaps
-    .filter((s) => s.view != null)
-    .map((s) => ({ x: (s.t - r.item.pubdate * 1000) / HOUR, y: s.view }))
-    .filter((p) => p.x >= 0 && p.x <= xmax);
+  // 优先用创作中心的发布后播放曲线（逐小时 / 逐日累计），没有再用自己记录的快照
+  const earlyPts = (it) => {
+    const e = it.early;
+    if (!e) return [];
+    const pts = [];
+    let c = 0;
+    (e.hours || []).forEach((v, i) => { c += v; if (i + 1 <= xmax) pts.push({ x: i + 1, y: c }); });
+    if (xmax > 48) {
+      let cd = 0;
+      (e.days || []).forEach((v, i) => { cd += v; const x = (i + 1) * 24; if (x > 48 && x <= xmax) pts.push({ x, y: cd }); });
+    }
+    return pts;
+  };
+  const toPts = (r) => {
+    const e = earlyPts(r.item);
+    if (e.length >= 2) return e;
+    return r.snaps
+      .filter((s) => s.view != null)
+      .map((s) => ({ x: (s.t - r.item.pubdate * 1000) / HOUR, y: s.view }))
+      .filter((p) => p.x >= 0 && p.x <= xmax);
+  };
   const series = rows
     .map((r) => ({ r, points: toPts(r) }))
     .filter((s) => s.points.length >= 2)
@@ -657,6 +753,7 @@ async function render(force = false) {
   renderHero(rows, now);
   renderKpis(data, rows, now);
   renderInsights(data, now);
+  renderLong(data, now);
   renderFollowers(data);
   renderCurve(rows);
   renderBars(rows);
@@ -713,8 +810,10 @@ $('c-save').addEventListener('click', async () => {
   $('c-save').disabled = true;
   cmsg('正在加密上传…');
   try {
-    const r = await chrome.runtime.sendMessage({ type: 'syncCloud' });
-    if (!r || !r.ok) throw new Error((r && r.error) || '上传失败');
+    const r = await chrome.runtime.sendMessage({ type: 'syncCloud' }).catch(() => null);
+    // 没回应：后台还是旧版本（没有处理上传的代码），扩展需要在 chrome://extensions 里重新加载
+    if (!r) throw new Error('后台没有响应：请在 chrome://extensions 里点“内容数据监控”的刷新按钮，再刷新本页重试');
+    if (!r.ok) throw new Error(r.error || '上传失败');
     if (r.cloud.error) throw new Error(r.cloud.error);
     current.status.cloud = r.cloud;
     showLink();
@@ -774,4 +873,22 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(render, 150);
 });
 
+// 看板页面每次打开都读磁盘上的新文件，后台程序却要在 chrome://extensions 里重新加载才会更新。
+// 两边版本不一致时提醒一下，否则新功能（比如上传）会因为后台没有对应代码而失败
+async function checkStaleBackground() {
+  if (!isExtension) return;
+  try {
+    const disk = await fetch(chrome.runtime.getURL('manifest.json'), { cache: 'no-store' }).then((r) => r.json());
+    const loaded = chrome.runtime.getManifest().version;
+    if (disk.version !== loaded) {
+      $('banner').hidden = false;
+      $('banner').classList.add('err');
+      $('banner').textContent = `扩展已更新（${loaded} → ${disk.version}），但后台还在跑旧版本。请打开 chrome://extensions，在“内容数据监控”上点刷新按钮，然后刷新本页。`;
+    }
+  } catch {
+    // 读不到就不提示
+  }
+}
+
+checkStaleBackground();
 render();
