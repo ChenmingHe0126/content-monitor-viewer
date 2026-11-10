@@ -1,0 +1,12 @@
+{
+  "name": "内容数据",
+  "short_name": "内容数据",
+  "description": "B 站和公众号的粉丝与作品数据看板",
+  "display": "standalone",
+  "background_color": "#f4f4f1",
+  "theme_color": "#0b0b0b",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -503,12 +503,39 @@ const nowOf = (data) => data.__now || Date.now();
 // 网址 #g=<Gist id>：从 Gist 取密文，用查看密码解密。?env=<文件> 只用于本地测试
 const hashParams = new URLSearchParams(location.hash.slice(1));
 const queryParams = new URLSearchParams(location.search);
-const VIEWER = !isExtension && (hashParams.get('g') || queryParams.get('env'))
-  ? { gist: hashParams.get('g'), envUrl: queryParams.get('env') }
-  : null;
 const PASS_KEY = 'cm-view-pass';
+const GIST_KEY = 'cm-view-gist';
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* 无痕模式等 */ } };
+// 发布在网上的手机页（不是扩展、不是本机预览）。从主屏幕图标打开时网址可能不带 #g=，用记住的那个
+const PUBLISHED = !isExtension && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && !queryParams.has('demo');
+let gistId = hashParams.get('g');
+if (gistId && !isExtension) lsSet(GIST_KEY, gistId);
+else if (PUBLISHED) gistId = lsGet(GIST_KEY);
+const VIEWER = !isExtension && (gistId || queryParams.get('env') || PUBLISHED)
+  ? { gist: gistId, envUrl: queryParams.get('env') }
+  : null;
+
+// 还不知道数据在哪个 Gist：请用户粘贴电脑上复制的网址
+function askLink() {
+  return new Promise(() => {
+    $('lock').hidden = false;
+    $('lock-form').hidden = true;
+    $('link-form').hidden = false;
+    document.querySelector('main').hidden = true;
+    $('banner').hidden = true;
+    $('link-form').onsubmit = (ev) => {
+      ev.preventDefault();
+      const m = /[#&?]g=([0-9a-zA-Z]+)/.exec($('link-in').value.trim());
+      if (!m) {
+        $('link-msg').textContent = '没认出来。请粘贴完整网址，结尾应有 #g= 和一串字母数字';
+        return;
+      }
+      lsSet(GIST_KEY, m[1]);
+      location.hash = `g=${m[1]}`; // 触发 hashchange，页面重新加载
+    };
+  });
+}
 let cached = null;
 let pendingViewer = null;
 // 只改 # 后面的部分时浏览器不会重新加载页面，这里手动重载，让新的 Gist 生效
@@ -517,6 +544,8 @@ window.addEventListener('hashchange', () => location.reload());
 function askPassword(env) {
   return new Promise((resolve) => {
     $('lock').hidden = false;
+    $('link-form').hidden = true;
+    $('lock-form').hidden = false;
     document.querySelector('main').hidden = true;
     $('lock-pw').value = '';
     $('lock-msg').textContent = '';
@@ -544,9 +573,21 @@ async function loadViewer() {
   $('banner').hidden = false;
   $('banner').classList.remove('err');
   $('banner').textContent = '正在读取数据…';
+  if (!VIEWER.gist && !VIEWER.envUrl) await askLink();
   let env;
   let updatedAt = null;
-  if (VIEWER.gist) ({ env, updatedAt } = await fetchGist(VIEWER.gist));
+  if (VIEWER.gist) {
+    try {
+      ({ env, updatedAt } = await fetchGist(VIEWER.gist));
+    } catch (e) {
+      // 记住的网址失效了（比如电脑上重建了 Gist），让用户重新粘贴新网址
+      if (!hashParams.get('g') && /找不到数据/.test(e.message)) {
+        lsSet(GIST_KEY, null);
+        await askLink();
+      }
+      throw e;
+    }
+  }
   else env = await fetch(VIEWER.envUrl, { cache: 'no-store' }).then((r) => r.json());
   let data = null;
   const saved = lsGet(PASS_KEY);

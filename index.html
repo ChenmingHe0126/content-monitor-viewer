@@ -4,6 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>内容数据</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="内容数据">
+  <meta name="theme-color" content="#0b0b0b">
   <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
@@ -16,6 +23,14 @@
       <label class="check"><input id="lock-remember" type="checkbox" checked> 在这台手机上记住密码</label>
       <button id="lock-btn" class="btn primary">打开</button>
       <p id="lock-msg" class="msg"></p>
+    </form>
+    <form id="link-form" class="card lock-card" hidden>
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="3" y="12" width="4" height="9" rx="1.5"/><rect x="10" y="7" width="4" height="14" rx="1.5"/><rect x="17" y="3" width="4" height="18" rx="1.5"/></svg></div>
+      <h2>内容数据</h2>
+      <p class="help">把电脑看板“手机查看”里复制的网址粘贴到这里。之后从这台手机打开会自动记住。</p>
+      <input id="link-in" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://…#g=…" required>
+      <button class="btn primary">打开</button>
+      <p id="link-msg" class="msg"></p>
     </form>
   </div>
 
