@@ -508,7 +508,8 @@ const GIST_KEY = 'cm-view-gist';
 const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* 无痕模式等 */ } };
 // 发布在网上的手机页（不是扩展、不是本机预览）。从主屏幕图标打开时网址可能不带 #g=，用记住的那个
-const PUBLISHED = !isExtension && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) && !queryParams.has('demo');
+const ON_WEB = !isExtension && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+const PUBLISHED = ON_WEB && !queryParams.has('demo');
 let gistId = hashParams.get('g');
 if (gistId && !isExtension) lsSet(GIST_KEY, gistId);
 else if (PUBLISHED) gistId = lsGet(GIST_KEY);
@@ -725,8 +726,11 @@ $('c-save').addEventListener('click', async () => {
   }
 });
 
-if (VIEWER) {
+// 网上的手机页只用来看；token、密码、推送这些设置只能在电脑的扩展里填，网页上不出现这些按钮
+if (VIEWER || ON_WEB) {
   for (const id of ['btn-cloud', 'btn-settings', 'btn-export', 'btn-collect']) $(id).hidden = true;
+}
+if (VIEWER) {
   $('btn-refresh').hidden = false;
   $('btn-lock').hidden = false;
 }
