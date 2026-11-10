@@ -511,6 +511,8 @@ const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return nu
 const lsSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* 无痕模式等 */ } };
 let cached = null;
 let pendingViewer = null;
+// 只改 # 后面的部分时浏览器不会重新加载页面，这里手动重载，让新的 Gist 生效
+window.addEventListener('hashchange', () => location.reload());
 
 function askPassword(env) {
   return new Promise((resolve) => {
