@@ -257,9 +257,24 @@ function followerPoints(data) {
 const ICON = { good: '✓', warn: '!', info: 'i' };
 const chip = (kind, html) => `<span class="chip ${kind}">${kind ? `<span class="ico">${ICON[kind]}</span>` : ''}${html}</span>`;
 
+// 已定时、还没到发布时间的作品
+function scheduledItems(data, now) {
+  return Object.values(data.items)
+    .filter((it) => it.platform === PLATFORM && it.pubdate && it.pubdate * 1000 > now)
+    .sort((a, b) => a.pubdate - b.pubdate);
+}
+const scheduledChip = (list) => list.length
+  ? chip('', `已定时 <b>${list.length}</b> 个：${list.map((it) => `${esc((it.title || '').slice(0, 14))} ${new Date(it.pubdate * 1000).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 发布`).join('；')}`)
+  : '';
+
 function renderHero(rows, now) {
   const host = $('hero');
   const n = rows[0];
+  const sched = scheduledItems(current, now);
+  if (!n && sched.length) {
+    host.innerHTML = `<div class="empty" style="grid-column:1/-1">还没有已发布的${L().item}。${scheduledChip(sched)}<br>发布后会自动开始记录。</div>`;
+    return;
+  }
   if (!n) {
     const st = (current && current.status[PLATFORM]) || {};
     const why = st.errMsg
@@ -295,6 +310,7 @@ function renderHero(rows, now) {
     }
     if (it.private) chips.push(chip('warn', '<b>仅自己可见</b>'));
     if (it.video) chips.push(chip('', '视频'));
+    if (sched.length) chips.push(scheduledChip(sched));
   } else {
     chips.push(chip('', it.sent ? `群发送达 <b>${num(it.sent)}</b> 人` : '没有群发记录'));
     if (it.sent && n.view != null) chips.push(chip('', `阅读 / 送达 <b>${pct(n.view / it.sent)}</b>`));
