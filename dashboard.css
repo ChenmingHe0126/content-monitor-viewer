@@ -28,6 +28,8 @@
   --wx: #07c160;
   --dy: #25c4d8;
   --xhs: #ff2442;
+  --yt: #ff0033;
+  --ig: #c13584;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -121,6 +123,8 @@ a { color: inherit; }
 .dot.wx { background: var(--wx); }
 .dot.dy { background: var(--dy); }
 .dot.xhs { background: var(--xhs); }
+.dot.yt { background: var(--yt); }
+.dot.ig { background: var(--ig); }
 
 /* ---------- 卡片 ---------- */
 .card {

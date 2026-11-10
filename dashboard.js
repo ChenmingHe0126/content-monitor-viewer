@@ -299,7 +299,7 @@ function renderHero(rows, now) {
     } else {
       chips.push(chip('', '登录 B 站创作中心后显示限流状态和点击率'));
     }
-  } else if (PLATFORM === 'xiaohongshu' || PLATFORM === 'douyin') {
+  } else if (['xiaohongshu', 'douyin', 'youtube', 'instagram'].includes(PLATFORM)) {
     const d = it.deep;
     if (d && d.impressions != null) {
       chips.push(chip('', `曝光 <b>${num(d.impressions)}</b>`));
@@ -310,6 +310,8 @@ function renderHero(rows, now) {
     }
     if (it.private) chips.push(chip('warn', '<b>仅自己可见</b>'));
     if (it.video) chips.push(chip('', '视频'));
+    if (it.short) chips.push(chip('', 'Shorts'));
+    if (it.privacy && it.privacy !== '公开') chips.push(chip('warn', `<b>${esc(it.privacy)}</b>`));
     if (sched.length) chips.push(scheduledChip(sched));
   } else {
     chips.push(chip('', it.sent ? `群发送达 <b>${num(it.sent)}</b> 人` : '没有群发记录'));
@@ -327,6 +329,8 @@ function renderHero(rows, now) {
     { l: `往期${L().view}中位数`, v: num(med), s: med ? `${past.length} 期累计，这期才发 ${ageText(n.ageH)}` : '往期数据不足' },
     PLATFORM === 'wechat'
       ? { l: '点赞 · 喜欢 · 分享', v: `${num(f.like)} · ${num(f.wow)} · ${num(f.share)}`, s: `评论 ${num(f.reply)}`, sm: true }
+      : PLATFORM === 'youtube' || PLATFORM === 'instagram'
+        ? { l: '点赞 · 评论', v: `${num(f.like)} · ${num(f.reply)}`, s: '', sm: true }
       : PLATFORM === 'bilibili'
         ? { l: '点赞 · 投币 · 收藏', v: `${num(f.like)} · ${num(f.coin)} · ${num(f.fav)}`, s: `评论 ${num(f.reply)} · 分享 ${num(f.share)}`, sm: true }
         : { l: '点赞 · 收藏 · 分享', v: `${num(f.like)} · ${num(f.fav)} · ${num(f.share)}`, s: `评论 ${num(f.reply)}`, sm: true },
@@ -461,7 +465,7 @@ function renderBars(rows) {
 
 function renderTable(rows, followers) {
   const wx = PLATFORM === 'wechat';
-  const social = PLATFORM === 'xiaohongshu' || PLATFORM === 'douyin';
+  const social = ['xiaohongshu', 'douyin', 'youtube', 'instagram'].includes(PLATFORM);
   const head = wx
     ? ['文章', '发布', '送达', '阅读', '阅读/送达', '点赞', '喜欢', '分享', '评论', '互动率']
     : social
@@ -491,9 +495,9 @@ function renderTable(rows, followers) {
 
 function renderStatus(data, now) {
   const parts = [];
-  for (const p of ['bilibili', 'wechat', 'douyin', 'xiaohongshu']) {
+  for (const p of ['bilibili', 'wechat', 'douyin', 'xiaohongshu', 'youtube', 'instagram']) {
     const st = data.status[p] || {};
-    if ((p === 'douyin' || p === 'xiaohongshu') && !st.lastOk && !st.errMsg && !st.lastTry) continue;
+    if (!['bilibili', 'wechat'].includes(p) && !st.lastOk && !st.errMsg && !st.lastTry) continue;
     let cls = 'ok';
     let text;
     if (st.backoffUntil && now < st.backoffUntil) { cls = 'err'; text = `被平台风控，${fmtTime(st.backoffUntil)} 后再试`; }
