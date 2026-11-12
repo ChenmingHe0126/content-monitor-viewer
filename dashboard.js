@@ -766,7 +766,7 @@ function prepareViewerData(data, updatedAt) {
   return data;
 }
 
-// 手机点“更新”：通知电脑马上采集，然后每 30 秒看一次有没有新上传的数据（最多约 6 分钟）
+// 手机点“更新”：通知电脑马上采集，然后每 30 秒看一次有没有新上传的数据（最多约 10 分钟）
 async function phoneUpdate() {
   const btn = $('btn-refresh');
   const banner = (text, err = false) => {
@@ -797,8 +797,8 @@ async function phoneUpdate() {
     btn.disabled = false;
     return;
   }
-  banner('已通知电脑采集，通常 1–3 分钟，页面会自动刷新…');
-  for (let i = 0; i < 12; i++) {
+  banner('已通知电脑采集，通常 2–4 分钟，页面会自动刷新…');
+  for (let i = 0; i < 20; i++) {
     await new Promise((r) => setTimeout(r, 30000));
     banner(`已通知电脑采集，等待中（${Math.round((Date.now() - tap) / 1000)} 秒）…`);
     try {
