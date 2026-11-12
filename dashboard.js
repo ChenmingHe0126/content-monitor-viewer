@@ -3,6 +3,7 @@ import { analyze, videoRows, latestFollowers, median, fmtDuration, LABELS, HOUR 
 import { buildDailyReport, buildDotReport, buildDotPrompt, followerChange, viewsChange, ageText, PLATFORM_NAMES } from './lib/report.js';
 import { sendPush, pushReady, dotReady, postDot, randomTopic, CHANNELS } from './lib/push.js';
 import { decryptJson, fetchGist, WrongPasswordError, cloudReady, viewerLink } from './lib/cloud.js';
+import { sendRemoteCommand } from './lib/remote.js';
 import { videoFacts, longTermFindings, durationTable } from './lib/analysis.js';
 
 let PLATFORM = 'bilibili';
@@ -508,6 +509,9 @@ function renderStatus(data, now) {
     else { cls = ''; text = '还没有采集过'; }
     parts.push(`<span class="st ${cls}"><i></i>${PLATFORM_NAMES[p]} · ${esc(text)}</span>`);
   }
+  const rm = data.__viewer ? (data.remote || {}) : { autoCollect: data.config.autoCollect !== false, lastRunAt: (data.status.remote || {}).lastRunAt };
+  if (rm.autoCollect === false) parts.push('<span class="st"><i></i>定时采集已关闭，只在点“更新”时采集</span>');
+  if (rm.lastRunAt) parts.push(`<span class="st ok"><i></i>手机遥控 · ${esc(fmtAgo(rm.lastRunAt, now))}</span>`);
   if (data.__viewer) {
     $('status').innerHTML = parts.join('');
     return;
@@ -683,6 +687,7 @@ function askLink() {
 }
 let cached = null;
 let pendingViewer = null;
+let viewerPass = null; // 解密用的查看密码，只在页面内存里
 // 只改 # 后面的部分时浏览器不会重新加载页面，这里手动重载，让新的 Gist 生效
 window.addEventListener('hashchange', () => location.reload());
 
@@ -701,6 +706,7 @@ function askPassword(env) {
       $('lock-msg').textContent = '解密中…';
       try {
         const data = await decryptJson(env, $('lock-pw').value);
+        viewerPass = $('lock-pw').value;
         if ($('lock-remember').checked) lsSet(PASS_KEY, $('lock-pw').value);
         $('lock').hidden = true;
         document.querySelector('main').hidden = false;
@@ -739,19 +745,71 @@ async function loadViewer() {
   if (saved) {
     try {
       data = await decryptJson(env, saved);
+      viewerPass = saved;
     } catch (e) {
       if (!(e instanceof WrongPasswordError)) throw e;
       lsSet(PASS_KEY, null);
     }
   }
   if (!data) data = await askPassword(env);
+  return prepareViewerData(data, updatedAt);
+}
+
+function prepareViewerData(data, updatedAt) {
   data.config = { ...DEFAULT_CONFIG, ...(data.config || {}), push: { ...DEFAULT_CONFIG.push }, cloud: { ...DEFAULT_CONFIG.cloud } };
   data.daily ||= {};
   data.status ||= {};
   data.__viewer = true;
   const up = Date.parse(data.exportedAt) || Date.parse(updatedAt);
+  $('banner').classList.remove('err');
   $('banner').textContent = `手机查看 · 电脑 ${up ? fmtAgo(up, Date.now()) : '—'}上传的数据`;
   return data;
+}
+
+// 手机点“更新”：通知电脑马上采集，然后每 30 秒看一次有没有新上传的数据（最多约 6 分钟）
+async function phoneUpdate() {
+  const btn = $('btn-refresh');
+  const banner = (text, err = false) => {
+    $('banner').hidden = false;
+    $('banner').classList.toggle('err', err);
+    $('banner').textContent = text;
+  };
+  const topic = current && current.remote && current.remote.topic;
+  if (!VIEWER || !VIEWER.gist || !viewerPass) return render(true);
+  if (!topic) {
+    banner('电脑端还没开启手机遥控更新：请在电脑上刷新扩展到最新版本。先为你重新读取一次已有数据。', true);
+    cached = null;
+    return render(true);
+  }
+  btn.disabled = true;
+  const tap = Date.now();
+  try {
+    await sendRemoteCommand(topic);
+  } catch (e) {
+    banner(e.message, true);
+    btn.disabled = false;
+    return;
+  }
+  banner('已通知电脑采集，通常 1–3 分钟，页面会自动刷新…');
+  for (let i = 0; i < 12; i++) {
+    await new Promise((r) => setTimeout(r, 30000));
+    banner(`已通知电脑采集，等待中（${Math.round((Date.now() - tap) / 1000)} 秒）…`);
+    try {
+      const { env, updatedAt } = await fetchGist(VIEWER.gist);
+      const d = await decryptJson(env, viewerPass);
+      if (Date.parse(d.exportedAt) > tap) {
+        cached = prepareViewerData(d, updatedAt);
+        btn.disabled = false;
+        await render();
+        banner(`已更新：电脑在 ${fmtTime(Date.parse(d.exportedAt))} 采集的数据`);
+        return;
+      }
+    } catch {
+      // 网络抖动或 GitHub 缓存，下一轮再看
+    }
+  }
+  btn.disabled = false;
+  banner('电脑没有回应：可能关机、睡眠，或 Chrome 没在后台运行。可以稍后再点一次。', true);
 }
 
 async function load(force = false) {
@@ -830,6 +888,7 @@ function showLink() {
 $('btn-cloud').addEventListener('click', () => {
   const c = current.config.cloud;
   $('c-on').checked = !!c.enabled;
+  $('c-auto').checked = current.config.autoCollect !== false;
   $('c-token').value = c.token || '';
   $('c-pass').value = c.passphrase || '';
   showLink();
@@ -848,7 +907,7 @@ $('c-save').addEventListener('click', async () => {
   const c = { ...current.config.cloud, enabled: $('c-on').checked, token: $('c-token').value.trim(), passphrase: $('c-pass').value };
   if (c.enabled && !c.token) return cmsg('请先填 GitHub token', true);
   if (c.enabled && c.passphrase.length < 8) return cmsg('查看密码至少 8 位', true);
-  current.config = { ...current.config, cloud: c };
+  current.config = { ...current.config, cloud: c, autoCollect: $('c-auto').checked };
   if (!isExtension) {
     demoConfig = current.config;
     return cmsg('预览模式不上传，装成扩展后可用', true);
@@ -881,7 +940,7 @@ if (VIEWER) {
   $('btn-refresh').hidden = false;
   $('btn-lock').hidden = false;
 }
-$('btn-refresh').addEventListener('click', () => render(true));
+$('btn-refresh').addEventListener('click', () => phoneUpdate());
 $('btn-lock').addEventListener('click', () => {
   lsSet(PASS_KEY, null);
   render(true);

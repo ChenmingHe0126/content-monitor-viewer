@@ -46,7 +46,7 @@
         </div>
       </div>
       <div class="actions">
-        <button id="btn-refresh" class="btn ghost" hidden>刷新</button>
+        <button id="btn-refresh" class="btn primary" hidden>更新</button>
         <button id="btn-lock" class="btn ghost" hidden>退出</button>
         <button id="btn-cloud" class="btn ghost">手机查看</button>
         <button id="btn-settings" class="btn ghost">手机推送</button>
@@ -198,6 +198,8 @@
       <p class="help">开启后，电脑每次采集完，会把数据用你设的查看密码加密，存到你 GitHub 账号下的一个私密 Gist。手机打开下面生成的网址、输入查看密码就能看，电脑关机时显示最后一次上传的数据。GitHub 上只有加密后的内容，没有密码解不开；token 和查看密码只存在这台电脑的 Chrome 里，不会上传。</p>
 
       <label class="check top-gap"><input id="c-on" type="checkbox"> 开启手机查看</label>
+      <label class="check top-gap"><input id="c-auto" type="checkbox"> 定时自动采集（每 30 分钟）</label>
+      <p class="help">手机查看页右上角有“更新”按钮：点一下，这台电脑会在 1 分钟内开始采集全部平台，采完自动上传，手机页面随后刷新（电脑开着、Chrome 在后台运行时）。关掉定时自动采集后，只在手机点“更新”或这里点“立即采集”时才采集；日报和提醒照常按时发。</p>
 
       <div class="field">
         <label for="c-token">GitHub token</label>
