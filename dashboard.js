@@ -774,14 +774,21 @@ async function phoneUpdate() {
     $('banner').classList.toggle('err', err);
     $('banner').textContent = text;
   };
-  const topic = current && current.remote && current.remote.topic;
   if (!VIEWER || !VIEWER.gist || !viewerPass) return render(true);
-  if (!topic) {
-    banner('电脑端还没开启手机遥控更新：请在电脑上刷新扩展到最新版本。先为你重新读取一次已有数据。', true);
-    cached = null;
-    return render(true);
-  }
   btn.disabled = true;
+  let topic = current && current.remote && current.remote.topic;
+  if (!topic) {
+    // 页面里的数据可能是电脑开启遥控之前上传的，先重新取一次最新的
+    banner('正在读取最新数据…');
+    cached = null;
+    await render(true);
+    topic = current && current.remote && current.remote.topic;
+  }
+  if (!topic) {
+    btn.disabled = false;
+    banner('电脑还没把遥控设置传上来：请在电脑上打开 chrome://extensions，刷新“内容数据监控”，等 1–2 分钟再点“更新”。', true);
+    return;
+  }
   const tap = Date.now();
   try {
     await sendRemoteCommand(topic);
